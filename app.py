@@ -1,0 +1,86 @@
+import streamlit as st
+import google.generativeai as genai
+
+# --- KONFIGURASI HALAMAN ---
+st.set_page_config(
+    page_title="Chef Gemini AI - Kreator Resep Pintar",
+    page_icon="🍳",
+    layout="centered"
+)
+
+# --- SISTEM KEAMANAN API KEY ---
+# Di Streamlit Cloud, masukkan API Key di Settings > Secrets dengan nama GEMINI_API_KEY
+def init_gemini():
+    if "GEMINI_API_KEY" in st.secrets:
+        api_key = st.secrets["GEMINI_API_KEY"]
+    else:
+        st.error("⚠️ API Key tidak ditemukan. Pastikan 'GEMINI_API_KEY' sudah diatur di Secrets Streamlit.")
+        st.stop()
+    
+    genai.configure(api_key=api_key)
+    return genai.GenerativeModel('gemini-1.5-flash')
+
+# Inisialisasi Model
+model = init_gemini()
+
+# --- TAMPILAN ANTARMUKA ---
+st.title("👨‍🍳 Chef Gemini: Racik Menu Sesukamu")
+st.markdown("""
+Sebutkan bumbu dan bahan yang ada di dapurmu. AI akan menciptakan resep unik yang logis dan lezat!
+""")
+
+# Menggunakan form agar aplikasi tidak reload setiap kali mengetik
+with st.form("form_dapur"):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        bahan_utama = st.text_input("🥩 Bahan Utama", placeholder="Ayam, Telur, Tahu...")
+    
+    with col2:
+        sayuran = st.text_input("🥦 Sayuran", placeholder="Bayam, Wortel, Kangkung...")
+        
+    bumbu = st.text_area("🧂 Bumbu & Bahan Lain", placeholder="Bawang putih, garam, saus tiram, santan, madu...")
+    
+    pedas = st.select_slider(
+        "🔥 Tingkat Kepedasan",
+        options=["Aman", "Sedang", "Pedas", "Lidah Terbakar"]
+    )
+    
+    submit_button = st.form_submit_button(label="🪄 Racik Resep Sekarang")
+
+# --- LOGIKA GENERASI RESEP ---
+if submit_button:
+    if not bahan_utama or not bumbu:
+        st.warning("Mohon isi minimal 'Bahan Utama' dan 'Bumbu' agar Chef bisa bekerja!")
+    else:
+        with st.spinner('👨‍🍳 Sedang meramu resep rahasia...'):
+            # Prompt Engineering untuk hasil terbaik
+            prompt = f"""
+            Anda adalah seorang Chef Profesional. 
+            Tugas Anda adalah membuat 1 resep masakan yang kreatif berdasarkan input berikut:
+            - Bahan Utama: {bahan_utama}
+            - Sayuran: {sayuran}
+            - Bumbu yang tersedia: {bumbu}
+            - Preferensi Pedas: {pedas}
+
+            Berikan jawaban dengan struktur Markdown yang sangat rapi:
+            1. Nama Menu (Berikan nama yang menggugah selera)
+            2. Estimasi Waktu Masak
+            3. Daftar Bahan (Sebutkan jumlah takaran secara logis)
+            4. Langkah Memasak (Berikan instruksi yang jelas)
+            5. Tips Chef (Tips agar masakan lebih gurih/maksimal)
+            
+            Gunakan bahasa Indonesia yang santai namun tetap informatif.
+            """
+            
+            try:
+                response = model.generate_content(prompt)
+                st.markdown("---")
+                st.success("✨ Resep Berhasil Diracik!")
+                st.markdown(response.text)
+            except Exception as e:
+                st.error(f"Terjadi kesalahan saat menghubungi AI: {e}")
+
+# --- FOOTER ---
+st.markdown("---")
+st.caption("Aplikasi ini menggunakan Google Gemini AI | Pastikan bahan yang digunakan layak konsumsi.")
