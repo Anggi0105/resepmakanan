@@ -10,20 +10,21 @@ st.set_page_config(
 
 # --- SISTEM KEAMANAN & INPUT API KEY ---
 def init_gemini():
-    # 1. Cek apakah ada di Secrets Streamlit Cloud
+    # 1. Ambil dari Secrets jika tersedia (untuk deployment Cloud)
     api_key = st.secrets.get("GEMINI_API_KEY")
     
-    # 2. Jika tidak ada di Secrets, tampilkan kolom input di halaman utama
+    # 2. Jika tidak ada di Secrets, munculkan kolom input di UI
     if not api_key:
         st.info("💡 Tips: Anda bisa mengatur API Key secara permanen di menu Secrets Streamlit Cloud.")
-        api_key = st.text_input("Masukkan Google Gemini API Key Anda:", type="password", help="Dapatkan API Key gratis di https://aistudio.google.com/")
+        api_key = st.text_input("Masukkan Google Gemini API Key Anda:", type="password")
     
     if api_key:
         try:
+            # Konfigurasi eksplisit API Key
             genai.configure(api_key=api_key)
             
-            # Coba inisialisasi dengan model Flash (tercepat & terbaru)
-            # Menggunakan penamaan model tanpa prefix 'models/' seringkali lebih stabil di SDK terbaru
+            # Memanggil model dengan cara paling standar untuk versi v1
+            # Menghindari prefix 'models/' atau 'v1beta/' secara manual dalam string
             model = genai.GenerativeModel('gemini-1.5-flash')
             return model
         except Exception as e:
@@ -38,9 +39,7 @@ model = init_gemini()
 
 # --- TAMPILAN ANTARMUKA ---
 st.title("👨‍🍳 Chef Gemini: Racik Menu Sesukamu")
-st.markdown("""
-Sebutkan bumbu dan bahan yang ada di dapurmu. AI akan menciptakan resep unik yang logis dan lezat!
-""")
+st.markdown("Sebutkan bumbu dan bahan yang ada di dapurmu. AI akan menciptakan resep unik yang lezat!")
 
 with st.form("form_dapur"):
     col1, col2 = st.columns(2)
@@ -49,7 +48,7 @@ with st.form("form_dapur"):
     with col2:
         sayuran = st.text_input("🥦 Sayuran", placeholder="Bayam, Wortel, Kangkung...")
         
-    bumbu = st.text_area("🧂 Bumbu & Bahan Lain", placeholder="Bawang putih, garam, saus tiram, santan, madu...")
+    bumbu = st.text_area("🧂 Bumbu & Bahan Lain", placeholder="Bawang putih, garam, saus tiram...")
     
     pedas = st.select_slider(
         "🔥 Tingkat Kepedasan",
@@ -68,29 +67,23 @@ if submit_button:
         with st.spinner('👨‍🍳 Sedang meramu resep rahasia...'):
             prompt = f"""
             Anda adalah seorang Chef Profesional. 
-            Tugas Anda adalah membuat 1 resep masakan yang kreatif berdasarkan input berikut:
-            - Bahan Utama: {bahan_utama}
-            - Sayuran: {sayuran}
-            - Bumbu yang tersedia: {bumbu}
-            - Preferensi Pedas: {pedas}
-
-            Berikan jawaban dengan struktur Markdown yang rapi:
-            1. Nama Menu
-            2. Estimasi Waktu
-            3. Daftar Bahan (dengan takaran logis)
-            4. Langkah Memasak
-            5. Tips Chef
+            Buatkan 1 resep kreatif berdasarkan input:
+            - Bahan: {bahan_utama}, {sayuran}
+            - Bumbu: {bumbu}
+            - Pedas: {pedas}
+            
+            Berikan output Markdown: Nama Menu, Estimasi Waktu, Bahan, Langkah Memasak, dan Tips Chef.
             """
             
             try:
+                # Menggunakan generate_content secara standar
                 response = model.generate_content(prompt)
                 st.markdown("---")
                 st.success("✨ Resep Berhasil Diracik!")
                 st.markdown(response.text)
             except Exception as e:
-                # Jika error 404 tetap muncul, kemungkinan library perlu diupdate
                 st.error(f"Terjadi kesalahan: {e}")
-                st.info("Solusi: Pastikan file requirements.txt sudah menggunakan google-generativeai versi terbaru.")
+                st.info("Solusi: Pastikan versi google-generativeai di requirements.txt sudah terbaru.")
 
 st.markdown("---")
 st.caption("Aplikasi ini menggunakan Google Gemini AI | Pastikan bahan layak konsumsi.")
