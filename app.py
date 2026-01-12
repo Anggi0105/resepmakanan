@@ -8,17 +8,26 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- SISTEM KEAMANAN API KEY ---
-# Di Streamlit Cloud, masukkan API Key di Settings > Secrets dengan nama GEMINI_API_KEY
+# --- SISTEM KEAMANAN & INPUT API KEY ---
 def init_gemini():
-    if "GEMINI_API_KEY" in st.secrets:
-        api_key = st.secrets["GEMINI_API_KEY"]
-    else:
-        st.error("⚠️ API Key tidak ditemukan. Pastikan 'GEMINI_API_KEY' sudah diatur di Secrets Streamlit.")
-        st.stop()
+    # 1. Cek apakah ada di Secrets (untuk deployment permanen)
+    api_key = st.secrets.get("GEMINI_API_KEY")
     
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-1.5-flash')
+    # 2. Jika tidak ada di Secrets, tampilkan kolom input di sidebar/halaman
+    if not api_key:
+        st.info("💡 Tips: Anda bisa mengatur API Key secara permanen di menu Secrets Streamlit.")
+        api_key = st.text_input("Masukkan Google Gemini API Key Anda:", type="password", help="Dapatkan API Key di https://aistudio.google.com/")
+    
+    if api_key:
+        try:
+            genai.configure(api_key=api_key)
+            return genai.GenerativeModel('gemini-1.5-flash')
+        except Exception as e:
+            st.error(f"Gagal konfigurasi AI: {e}")
+            return None
+    else:
+        st.warning("🔑 Masukkan API Key untuk mengaktifkan Chef Gemini.")
+        return None
 
 # Inisialisasi Model
 model = init_gemini()
@@ -50,11 +59,12 @@ with st.form("form_dapur"):
 
 # --- LOGIKA GENERASI RESEP ---
 if submit_button:
-    if not bahan_utama or not bumbu:
+    if not model:
+        st.error("Silakan masukkan API Key terlebih dahulu di kolom atas.")
+    elif not bahan_utama or not bumbu:
         st.warning("Mohon isi minimal 'Bahan Utama' dan 'Bumbu' agar Chef bisa bekerja!")
     else:
         with st.spinner('👨‍🍳 Sedang meramu resep rahasia...'):
-            # Prompt Engineering untuk hasil terbaik
             prompt = f"""
             Anda adalah seorang Chef Profesional. 
             Tugas Anda adalah membuat 1 resep masakan yang kreatif berdasarkan input berikut:
