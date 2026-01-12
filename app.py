@@ -13,7 +13,7 @@ def init_gemini():
     # 1. Cek apakah ada di Secrets (untuk deployment permanen)
     api_key = st.secrets.get("GEMINI_API_KEY")
     
-    # 2. Jika tidak ada di Secrets, tampilkan kolom input di sidebar/halaman
+    # 2. Jika tidak ada di Secrets, tampilkan kolom input di halaman
     if not api_key:
         st.info("💡 Tips: Anda bisa mengatur API Key secara permanen di menu Secrets Streamlit.")
         api_key = st.text_input("Masukkan Google Gemini API Key Anda:", type="password", help="Dapatkan API Key di https://aistudio.google.com/")
@@ -21,7 +21,9 @@ def init_gemini():
     if api_key:
         try:
             genai.configure(api_key=api_key)
-            return genai.GenerativeModel('gemini-1.5-flash')
+            # Menggunakan nama model yang lebih eksplisit untuk menghindari error 404
+            # Jika 'gemini-1.5-flash' tetap gagal, coba ganti ke 'gemini-pro'
+            return genai.GenerativeModel('models/gemini-1.5-flash')
         except Exception as e:
             st.error(f"Gagal konfigurasi AI: {e}")
             return None
@@ -84,12 +86,14 @@ if submit_button:
             """
             
             try:
+                # Menambahkan parameter safety_settings atau generation_config jika diperlukan
                 response = model.generate_content(prompt)
                 st.markdown("---")
                 st.success("✨ Resep Berhasil Diracik!")
                 st.markdown(response.text)
             except Exception as e:
                 st.error(f"Terjadi kesalahan saat menghubungi AI: {e}")
+                st.info("Catatan: Jika error 404 berlanjut, pastikan API Key Anda aktif dan mendukung model Gemini 1.5 Flash.")
 
 # --- FOOTER ---
 st.markdown("---")
