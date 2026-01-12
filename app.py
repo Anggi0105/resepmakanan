@@ -1,89 +1,93 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(
-    page_title="Chef Gemini AI - Kreator Resep Pintar",
-    page_icon="🍳",
-    layout="centered"
-)
+st.set_page_config(page_title="Chef AI: Masak Pintar (Gemini 3)", layout="wide", page_icon="🍳")
 
-# --- SISTEM KEAMANAN & INPUT API KEY ---
-def init_gemini():
-    # 1. Ambil dari Secrets jika tersedia (untuk deployment Cloud)
-    api_key = st.secrets.get("GEMINI_API_KEY")
+# --- CUSTOM CSS ---
+st.markdown("""
+    <style>
+    .recipe-box { padding: 25px; border: 1px solid #e0e0e0; border-radius: 15px; background-color: #f9f9f9; color: #333; line-height: 1.6; }
+    .stButton>button { width: 100%; border-radius: 10px; height: 50px; font-weight: bold; background-color: #ff4b4b; color: white; }
+    .stButton>button:hover { background-color: #ff3333; border: 1px solid #ff3333; }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("👨‍🍳 Chef AI: Inspirasi Resep Gemini 3")
+
+# --- SIDEBAR: KONFIGURASI API ---
+with st.sidebar:
+    st.header("🔑 Konfigurasi")
+    api_key_input = st.text_input("Masukkan Gemini API Key:", type="password")
+    st.info("Aplikasi ini menggunakan Model Gemini 3 Flash Preview untuk meracik resep masakan secara cerdas.")
+    st.markdown("[Dapatkan API Key Gratis di Sini](https://aistudio.google.com/)")
+
+# --- FUNGSI AI (SDK GOOGLE GENAI TERBARU) ---
+def generate_recipe(prompt, api_key):
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=prompt,
+        )
+        return response.text
+    except Exception as e:
+        return f"Error: Pastikan API Key benar. Detail: {str(e)}"
+
+# --- TABS INTERFACE ---
+tab1, tab2 = st.tabs(["🥘 Racik dari Bahan Sisa", "🔎 Cari Inspirasi Menu"])
+
+with tab1:
+    st.subheader("Punya Bahan Apa di Dapur?")
+    col_bahan, col_bumbu = st.columns(2)
     
-    # 2. Jika tidak ada di Secrets, munculkan kolom input di UI
-    if not api_key:
-        st.info("💡 Tips: Anda bisa mengatur API Key secara permanen di menu Secrets Streamlit Cloud.")
-        api_key = st.text_input("Masukkan Google Gemini API Key Anda:", type="password")
+    with col_bahan:
+        protein = st.text_input("Bahan Utama (Protein/Sayur):", placeholder="Contoh: Ayam, Tahu, Telur, Kangkung")
+    with col_bumbu:
+        bumbu = st.text_input("Bumbu yang Tersedia:", placeholder="Contoh: Bawang putih, Saus tiram, Kecap, Cabai")
     
-    if api_key:
-        try:
-            # Konfigurasi eksplisit API Key
-            genai.configure(api_key=api_key)
-            
-            # Memanggil model dengan cara paling standar untuk versi v1
-            # Menghindari prefix 'models/' atau 'v1beta/' secara manual dalam string
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            return model
-        except Exception as e:
-            st.error(f"Gagal konfigurasi AI: {e}")
-            return None
-    else:
-        st.warning("🔑 Masukkan API Key untuk mengaktifkan Chef Gemini.")
-        return None
+    level_pedas = st.select_slider("Tingkat Kepedasan:", options=["Tidak Pedas", "Sedang", "Pedas", "Lidah Terbakar"])
 
-# Inisialisasi Model
-model = init_gemini()
+    if st.button("🪄 Sulap Jadi Resep!"):
+        if not api_key_input:
+            st.error("Silakan isi API Key di sidebar terlebih dahulu!")
+        elif not protein or not bumbu:
+            st.warning("Mohon isi bahan dan bumbu yang Anda miliki.")
+        else:
+            with st.spinner("Chef AI sedang memikirkan menu terbaik..."):
+                prompt_racik = f"""
+                Bertindaklah sebagai Chef Profesional. 
+                Saya memiliki bahan utama: {protein} 
+                Dan bumbu: {bumbu}.
+                Tingkat kepedasan yang diinginkan: {level_pedas}.
+                
+                Tugas Anda:
+                1. Berikan Nama Menu yang unik dan menggugah selera.
+                2. Berikan daftar bahan lengkap (asumsikan bumbu dasar seperti garam/minyak tersedia).
+                3. Berikan instruksi memasak langkah-demi-langkah yang jelas.
+                4. Berikan 'Tips Rahasia Chef' agar masakan lebih enak.
+                
+                Gunakan format Markdown yang rapi.
+                """
+                res = generate_recipe(prompt_racik, api_key_input)
+                st.markdown("### ✨ Rekomendasi Masakan")
+                st.markdown(f'<div class="recipe-box">{res}</div>', unsafe_allow_html=True)
 
-# --- TAMPILAN ANTARMUKA ---
-st.title("👨‍🍳 Chef Gemini: Racik Menu Sesukamu")
-st.markdown("Sebutkan bumbu dan bahan yang ada di dapurmu. AI akan menciptakan resep unik yang lezat!")
-
-with st.form("form_dapur"):
-    col1, col2 = st.columns(2)
-    with col1:
-        bahan_utama = st.text_input("🥩 Bahan Utama", placeholder="Ayam, Telur, Tahu...")
-    with col2:
-        sayuran = st.text_input("🥦 Sayuran", placeholder="Bayam, Wortel, Kangkung...")
-        
-    bumbu = st.text_area("🧂 Bumbu & Bahan Lain", placeholder="Bawang putih, garam, saus tiram...")
+with tab2:
+    st.subheader("Cari Detail Resep Spesifik")
+    nama_masakan = st.text_input("Nama masakan yang ingin diketahui resepnya:", placeholder="Contoh: Rendang Daging, Fettuccine Carbonara, Seblak")
     
-    pedas = st.select_slider(
-        "🔥 Tingkat Kepedasan",
-        options=["Aman", "Sedang", "Pedas", "Lidah Terbakar"]
-    )
-    
-    submit_button = st.form_submit_button(label="🪄 Racik Resep Sekarang")
+    if st.button("Dapatkan Resep Lengkap"):
+        if not api_key_input:
+            st.error("Isi API Key dulu!")
+        elif not nama_masakan:
+            st.warning("Masukkan nama masakan.")
+        else:
+            with st.spinner(f"Mencari resep autentik {nama_masakan}..."):
+                prompt_cari = f"Berikan resep lengkap, sejarah singkat, estimasi kalori, dan cara memasak untuk menu: {nama_masakan}"
+                res = generate_recipe(prompt_cari, api_key_input)
+                st.markdown(f'<div class="recipe-box">{res}</div>', unsafe_allow_html=True)
 
-# --- LOGIKA GENERASI RESEP ---
-if submit_button:
-    if not model:
-        st.error("Silakan masukkan API Key yang valid terlebih dahulu.")
-    elif not bahan_utama or not bumbu:
-        st.warning("Mohon isi minimal 'Bahan Utama' dan 'Bumbu' agar Chef bisa bekerja!")
-    else:
-        with st.spinner('👨‍🍳 Sedang meramu resep rahasia...'):
-            prompt = f"""
-            Anda adalah seorang Chef Profesional. 
-            Buatkan 1 resep kreatif berdasarkan input:
-            - Bahan: {bahan_utama}, {sayuran}
-            - Bumbu: {bumbu}
-            - Pedas: {pedas}
-            
-            Berikan output Markdown: Nama Menu, Estimasi Waktu, Bahan, Langkah Memasak, dan Tips Chef.
-            """
-            
-            try:
-                # Menggunakan generate_content secara standar
-                response = model.generate_content(prompt)
-                st.markdown("---")
-                st.success("✨ Resep Berhasil Diracik!")
-                st.markdown(response.text)
-            except Exception as e:
-                st.error(f"Terjadi kesalahan: {e}")
-                st.info("Solusi: Pastikan versi google-generativeai di requirements.txt sudah terbaru.")
-
+# --- FOOTER ---
 st.markdown("---")
-st.caption("Aplikasi ini menggunakan Google Gemini AI | Pastikan bahan layak konsumsi.")
+st.caption("Chef AI Intelligence | Powered by Gemini 3 Flash SDK 1.0")
